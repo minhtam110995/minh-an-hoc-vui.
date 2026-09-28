@@ -1144,17 +1144,20 @@ if('speechSynthesis' in window){loadVoices();try{speechSynthesis.onvoiceschanged
 /* prefer warm female voices; enhanced/natural versions first */
 const VPREF={vi:['hoaimy','linh','google tiếng việt','tiếng việt','vi-vn-x-gft','vi-vn-x-vic','vi-vn-x-vif','vi-vn-language','female'],
   en:['samantha','ava','allison','susan','zoe','nicky','karen','tessa','serena','jenny','aria','michelle','zira','google us english','google uk english female','en-us-x-sfg','en-us-x-tpc','en-us-x-iol','en-us-language','female']};
-const VMALE=/\b(male|nam|namminh|daniel|alex|fred|thomas|david|mark|guy|ryan|oliver|george|aaron|arthur|rishi|tom|evan|nathan|reed|rocko|grandpa|eddy|christopher|eric|roger|steffan|andrew|brian)\b/i;
+const VMALE=/\b(male|nam|namminh|minh|daniel|alex|fred|thomas|david|mark|guy|ryan|oliver|george|aaron|arthur|rishi|tom|evan|nathan|reed|rocko|grandpa|eddy|christopher|eric|roger|steffan|andrew|brian|james|william|liam|jacob|noah|gordon|lee|junior|ralph|albert|bruce|bahh|trinoids|zarvox|whisper|bells|boing|bubbles|cellos|superstar|jester|organ)\b|microsoft an\b|x-vid|x-vie|x-iom|x-iob|x-tpd|x-iol-local-male/i;
+const VFEMALE=/female|\bnữ\b|hoaimy|linh|samantha|ava|allison|susan|zoe|nicky|karen|tessa|serena|jenny|aria|michelle|zira|moira|fiona|victoria|kathy|shelley|sandy|flo|grandma|x-gft|x-vif|x-sfg|x-tpc|x-iog|google/i;
+const isMaleVoice=v=>VMALE.test(v.name||'')&&!/female/i.test(v.name||'');
 function voiceList(lang){if(!VOICES.length)loadVoices();const pre=lang==='en'?['en-us','en-gb','en-au','en-ca','en-ie','en-nz','en']:['vi-vn','vi'];return VOICES.filter(v=>{const l=(v.lang||'').replace('_','-').toLowerCase();return pre.some(p=>l.startsWith(p));});}
 function voiceScore(v,lang){const n=(v.name||'').toLowerCase(),l=(v.lang||'').replace('_','-').toLowerCase();let sc=0;VPREF[lang].forEach((f,i)=>{if(n.includes(f))sc+=60-i*2;});
-  if(/enhanced|premium|natural|neural|nâng cao|cao cấp/.test(n))sc+=35;if(VMALE.test(n))sc-=120;if(lang==='en'&&l.startsWith('en-us'))sc+=12;if(lang==='vi'&&l.startsWith('vi-vn'))sc+=5;return sc;}
-function pickVoice(lang){const list=voiceList(lang);if(!list.length)return null;const want=lang==='en'?S.voiceEn:S.voiceVi;if(want){const v=list.find(x=>x.name===want);if(v)return v;}return list.slice().sort((a,b)=>voiceScore(b,lang)-voiceScore(a,lang))[0];}
+  if(/enhanced|premium|natural|neural|nâng cao|cao cấp/.test(n))sc+=35;if(VFEMALE.test(n))sc+=40;if(isMaleVoice(v))sc-=500;if(lang==='en'&&l.startsWith('en-us'))sc+=12;if(lang==='vi'&&l.startsWith('vi-vn'))sc+=5;return sc;}
+function pickVoice(lang){const list=voiceList(lang);if(!list.length)return null;const want=lang==='en'?S.voiceEn:S.voiceVi;if(want){const v=list.find(x=>x.name===want);if(v&&!isMaleVoice(v))return v;}return list.slice().sort((a,b)=>voiceScore(b,lang)-voiceScore(a,lang))[0];}
 /* speak a list of [text, lang] pieces one after another, each in its own voice */
 function sayParts(parts){
   if(!('speechSynthesis' in window))return;
   try{speechSynthesis.cancel();
     parts.forEach(p=>{if(!p||!p[0]||!String(p[0]).trim())return;const [t,lang]=p;const u=new SpeechSynthesisUtterance(lang==='vi'?spoken(t):t);
-      u.lang=lang==='en'?'en-US':'vi-VN';const v=pickVoice(lang);if(v)u.voice=v;u.rate=lang==='en'?.8:.92;u.pitch=1.12;speechSynthesis.speak(u);});
+      u.lang=lang==='en'?'en-US':'vi-VN';const v=pickVoice(lang);if(v)u.voice=v;u.rate=lang==='en'?.8:.92;
+      u.pitch=(!v||isMaleVoice(v))?1.45:(VFEMALE.test(v.name||'')?1.1:1.25);speechSynthesis.speak(u);});
   }catch(e){}
 }
 /* in English lessons: words in "quotes" or (parentheses), or plain-English sentences, are read with the English voice */
@@ -1437,12 +1440,13 @@ function vParent(){
 
 function voiceSettings(){
   const opt=(lang)=>{const list=voiceList(lang),cur=lang==='en'?S.voiceEn:S.voiceVi,auto=pickVoice(lang);
-    return `<option value="">Tự chọn giọng nữ hay nhất${!cur&&auto?' ('+esc(auto.name)+')':''}</option>`+list.map(v=>`<option value="${esc(v.name)}" ${v.name===cur?'selected':''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('');};
-  const noVi=!voiceList('vi').length;
+    const fem=list.filter(v=>!isMaleVoice(v)).sort((a,b)=>voiceScore(b,lang)-voiceScore(a,lang));
+    return `<option value="">Tự chọn giọng nữ hay nhất${!cur&&auto?' ('+esc(auto.name)+')':''}</option>`+fem.map(v=>`<option value="${esc(v.name)}" ${v.name===cur?'selected':''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('');};
+  const noVi=!voiceList('vi').length,onlyMale=['vi','en'].filter(l=>{const L=voiceList(l);return L.length&&L.every(isMaleVoice);}).map(l=>l==='vi'?'tiếng Việt':'tiếng Anh');
   return `<div style="display:grid;gap:10px"><b>Giọng cô giáo</b>
    <div class="form" style="grid-template-columns:1fr 1fr"><label>Giọng tiếng Việt<select id="v-vi">${opt('vi')}</select></label><label>Giọng tiếng Anh<select id="v-en">${opt('en')}</select></label></div>
    <div class="row"><button class="btn ghost" data-a="v-test">Nghe thử giọng cô giáo</button></div>
-   <p class="muted" style="margin:0;font-size:15px">${noVi?'Máy này chưa có giọng tiếng Việt. ':''}Muốn giọng hay và truyền cảm hơn: trên iPad vào Cài đặt → Trợ năng → Nội dung được đọc → Giọng nói, tải giọng <b>Linh (Nâng cao)</b> cho tiếng Việt và <b>Samantha / Ava (Nâng cao)</b> cho tiếng Anh, rồi mở lại app.</p></div>`;
+   <p class="muted" style="margin:0;font-size:15px">${noVi?'Máy này chưa có giọng tiếng Việt. ':''}${onlyMale.length?`Máy này chỉ có giọng nam cho ${onlyMale.join(' và ')}, app đang nâng cao giọng cho gần giọng nữ; nên tải thêm giọng nữ như hướng dẫn. `:''}Chỉ giọng nữ được hiện trong danh sách. Muốn giọng hay và truyền cảm hơn: trên iPad vào Cài đặt → Trợ năng → Nội dung được đọc → Giọng nói, tải giọng <b>Linh (Nâng cao)</b> cho tiếng Việt và <b>Samantha / Ava (Nâng cao)</b> cho tiếng Anh, rồi mở lại app.</p></div>`;
 }
 /* ---------- modal & PIN ---------- */
 function modal(html){const m=$('#modal');m.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;m.hidden=false;}
