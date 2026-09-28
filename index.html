@@ -26,6 +26,7 @@
   color-scheme:light;
 }
 [hidden]{display:none!important}
+html{scroll-padding-top:90px}
 html,body{height:100%}
 body{
   background-color:var(--paper);
@@ -194,7 +195,7 @@ h1,h2,h3{font-family:var(--display);line-height:1.15;margin:0;text-wrap:balance}
 .qsub{display:block;font-size:15px;font-weight:700;color:var(--muted);margin-top:2px}
 .teacher .bubble .qsub{font-size:14px}
 [data-drag]{touch-action:none;-webkit-user-select:none;user-select:none}
-.ghost{position:fixed;left:0;top:0;z-index:80;pointer-events:none;opacity:.92;box-shadow:0 10px 24px rgba(0,0,0,.25)!important;margin:0}
+.drag-ghost{position:fixed;left:0;top:0;z-index:80;pointer-events:none;opacity:.92;box-shadow:0 10px 24px rgba(0,0,0,.25)!important;margin:0}
 .dragging{opacity:.35}
 .drop-hover{outline:4px dashed var(--c);outline-offset:3px}
 .tile.letter{min-width:58px;font-family:var(--display);font-size:32px;text-transform:lowercase}
@@ -1523,6 +1524,7 @@ function vParent(){
   const wait=S.vouchers.filter(v=>v.st==='wait');
   let h=`<button class="back" data-a="home">${BACK} Trang chính</button><div class="hello"><div><h1>Khu của bố mẹ</h1><p>Theo dõi tiến độ, xác nhận thử thách và quản lý phần thưởng.</p></div><button class="btn ghost" data-a="home">Khóa lại</button></div>
   <div class="pgrid"><div class="stat"><b>${S.stars}</b><span>Sao hiện có</span></div><div class="stat"><b>${S.earned}</b><span>Tổng sao đã kiếm</span></div><div class="stat"><b>${done}/${all.length}</b><span>Bài đã đạt 80%</span></div><div class="stat"><b>${chDone}</b><span>Thử thách ngoài đời đã xong</span></div><div class="stat"><b>${streakNow()}</b><span>Ngày học liên tục</span></div></div>
+  ${dataMgmtHTML()}
   <div class="sec-title"><h2>Theo môn</h2></div><div class="tbl-wrap"><table class="hist"><tbody>${SUBJ.map(s=>{const ls=subjLessons(s.id),tried=ls.filter(id=>S.lessons[id]),avg=tried.length?Math.round(tried.reduce((a,id)=>a+S.lessons[id].best,0)/tried.length):0;return `<tr><td><b style="color:${s.c}">${s.name}</b></td><td>${ls.filter(passed).length}/${ls.length} bài đạt</td><td>${tried.length} bài đã học</td><td class="n">${tried.length?avg+'% TB':'—'}</td></tr>`;}).join('')}</tbody></table></div>`;
   h+=`<div class="sec-title"><h2>Thử thách chờ xác nhận</h2></div>`+(todo.length?`<div class="plist">${todo.map(([id])=>`<div class="pitem"><div><b>${esc(L[id].real)}</b><div class="muted" style="font-size:14px;font-weight:700">${SUBJ_BY[L[id].subj].name} · ${esc(L[id].title)}</div></div><div class="row"><button class="btn good" data-a="p-ok" data-id="${id}">Làm tốt +${WIN}</button><button class="btn bad" data-a="p-no" data-id="${id}">Chưa −${LOSE}</button></div></div>`).join('')}</div>`:'<p class="muted">Chưa có thử thách nào đang chờ. Khi con bấm "Để sau", thử thách sẽ hiện ở đây.</p>');
   h+=`<div class="sec-title"><h2>Phiếu đi chơi chờ thực hiện</h2></div>`+(wait.length?`<div class="plist">${wait.map(v=>`<div class="pitem"><div><b>${v.pic} ${esc(v.name)}</b><div class="muted" style="font-size:14px;font-weight:700">Đổi ngày ${fmtDate(v.d)} · ${v.cost} sao</div></div><button class="btn good" data-a="v-done" data-id="${v.id}">Đã đi ✓</button></div>`).join('')}</div>`:'<p class="muted">Chưa có phiếu nào.</p>');
@@ -1540,7 +1542,7 @@ function vParent(){
    <label class="toggle"><input type="checkbox" id="autoread" ${S.autoRead?'checked':''}> Tự đọc câu hỏi khi chuyển câu</label>
    <div class="form" style="grid-template-columns:1fr 1fr auto"><label>Mã PIN mới (4 số)<input id="pin1" inputmode="numeric" maxlength="4" pattern="[0-9]*"></label><label>Nhập lại mã PIN<input id="pin2" inputmode="numeric" maxlength="4" pattern="[0-9]*"></label><button class="btn" data-a="pin-change">Đổi mã PIN</button></div>
    ${S.pinSet?'':'<p class="muted" style="margin:0;font-size:15px">Mã PIN đang là 1234. Bố mẹ nên đổi để con không tự xác nhận.</p>'}
-   <div class="danger"><b>Xóa toàn bộ tiến độ</b><span class="muted" style="font-size:15px">Xóa sao, điểm, lịch sử và phiếu. Không khôi phục được.</span><div class="row" id="reset-zone"><button class="btn ghost" data-a="reset-1">Xóa toàn bộ…</button></div></div></div>
+</div>
   <div class="sec-title"><h2>Luật chơi</h2></div><div class="card"><ul style="margin:0;padding-left:20px;display:grid;gap:6px;font-weight:700">
    <li>Mỗi bài luyện tập: đúng từ 80% trở lên được +${WIN} sao; dưới 80% bị −${LOSE} sao (không trừ xuống dưới 0).</li>
    <li>Mỗi bài chỉ nhận sao 1 lần mỗi ngày. Làm lại sau khi đã đạt trong ngày thì không cộng, không trừ.</li>
@@ -1561,6 +1563,31 @@ function voiceSettings(){
    <div class="row"><button class="btn ghost" data-a="v-test">Nghe thử giọng cô giáo</button></div>
    <p class="muted" style="margin:0;font-size:15px">${noVi?'Máy này chưa có giọng tiếng Việt. ':''}${onlyMale.length?`Máy này chỉ có giọng nam cho ${onlyMale.join(' và ')}, app đang nâng cao giọng cho gần giọng nữ; nên tải thêm giọng nữ như hướng dẫn. `:''}Chỉ giọng nữ được hiện trong danh sách. Muốn giọng hay và truyền cảm hơn: trên iPad vào Cài đặt → Trợ năng → Nội dung được đọc → Giọng nói, tải giọng <b>Linh (Nâng cao)</b> cho tiếng Việt và <b>Samantha / Ava (Nâng cao)</b> cho tiếng Anh, rồi mở lại app.</p></div>`;
 }
+/* ---------- data management (parent) ---------- */
+const DEL_OPTS=[
+  ['hist','Xóa lịch sử sao','Xóa danh sách cộng, trừ sao. Số sao hiện có giữ nguyên.'],
+  ['scores','Cho con học lại từ đầu','Xóa điểm và dấu ✓ của các bài, bài đang làm dở và thử thách ngoài đời. Sao và phiếu đi chơi giữ nguyên.'],
+  ['quiz','Xóa bài đang làm dở','Bỏ bài luyện tập đang làm dở mà không trừ sao.'],
+  ['vouchers','Xóa phiếu đi chơi','Xóa danh sách phiếu đã đổi. Không hoàn lại sao.'],
+  ['play','Xóa dữ liệu khu vui chơi','Xóa kỷ lục trò chơi, truyện tiếng Anh và tranh vẽ.'],
+  ['all','Xóa toàn bộ, bắt đầu lại','Xóa tất cả: sao, điểm, lịch sử, phiếu, trò chơi. Giữ mã PIN và giọng đọc.']
+];
+function dataMgmtHTML(){
+  const subjOpts=`<select id="del-subj" aria-label="Chọn môn"><option value="">Tất cả các môn</option>${SUBJ.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>`;
+  return `<div class="sec-title"><h2>Xóa lịch sử học của con</h2></div><div class="plist">${DEL_OPTS.map(([k,t,d])=>`<div class="pitem" id="del-${k}"><div><b>${t}</b><div class="muted" style="font-size:14px;font-weight:700">${d}</div>${k==='scores'?`<div class="form" style="grid-template-columns:1fr;margin-top:8px;max-width:260px">${subjOpts}</div>`:''}</div><button class="btn ${k==='all'?'bad':'ghost'}" data-a="del-ask" data-k="${k}">${k==='all'?'Xóa toàn bộ':'Xóa'}</button></div>`).join('')}</div>`;
+}
+function delAsk(k){const box=$('#del-'+k);if(!box)return;const btn=box.querySelector('[data-a="del-ask"]');const wrap=document.createElement('div');wrap.className='row';wrap.innerHTML=`<span style="font-weight:800;color:var(--bad)">Chắc chắn?</span><button class="btn bad" data-a="del-do" data-k="${k}">Xóa</button><button class="btn ghost" data-a="del-no">Thôi</button>`;btn.replaceWith(wrap);}
+function delDo(k){
+  let msg='';
+  if(k==='hist'){S.history=[];msg='Đã xóa lịch sử sao';}
+  else if(k==='scores'){const sj=($('#del-subj')||{}).value||'';const ids=sj?subjLessons(sj):allLessons();ids.forEach(id=>{delete S.lessons[id];delete S.challenges[id];});
+    if(S.quiz&&ids.includes(S.quiz.id)){S.quiz=null;QZ=null;}if(S.lastLesson&&ids.includes(S.lastLesson))S.lastLesson=null;msg=sj?`Đã cho con học lại môn ${SUBJ_BY[sj].name} từ đầu`:'Đã cho con học lại tất cả các môn từ đầu';}
+  else if(k==='quiz'){S.quiz=null;QZ=null;msg='Đã xóa bài đang làm dở';}
+  else if(k==='vouchers'){S.vouchers=[];msg='Đã xóa phiếu đi chơi';}
+  else if(k==='play'){S.games={};S.story=[];try{localStorage.removeItem('minhan-drawings');}catch(e){}msg='Đã xóa dữ liệu khu vui chơi';}
+  else if(k==='all'){const keep={pin:S.pin,pinSet:S.pinSet,rev:S.rev,voiceVi:S.voiceVi,voiceEn:S.voiceEn,autoRead:S.autoRead};S=Object.assign(fresh(),keep);QZ=null;try{localStorage.removeItem('minhan-drawings');}catch(e){}msg='Đã xóa toàn bộ, con bắt đầu lại từ đầu';}
+  Store.commit();render();toast(msg);
+}
 /* ---------- modal & PIN ---------- */
 function modal(html){const m=$('#modal');m.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;m.hidden=false;}
 function closeModal(){const m=$('#modal');m.hidden=true;m.innerHTML='';PIN=null;}
@@ -1578,7 +1605,7 @@ let DRAG=null,SUPPRESS=false;
 document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-drag]');if(!el||el.disabled)return;DRAG={el,x:e.clientX,y:e.clientY,moved:false,kind:el.dataset.drag,i:+el.dataset.i};});
 document.addEventListener('pointermove',e=>{
   if(!DRAG)return;const dx=e.clientX-DRAG.x,dy=e.clientY-DRAG.y;if(!DRAG.moved&&Math.hypot(dx,dy)<10)return;
-  if(!DRAG.moved){DRAG.moved=true;const r=DRAG.el.getBoundingClientRect(),g=DRAG.el.cloneNode(true);g.classList.add('ghost');g.removeAttribute('data-a');g.style.width=r.width+'px';g.style.height=r.height+'px';DRAG.ox=DRAG.x-r.left;DRAG.oy=DRAG.y-r.top;document.body.appendChild(g);DRAG.g=g;DRAG.el.classList.add('dragging');
+  if(!DRAG.moved){DRAG.moved=true;const r=DRAG.el.getBoundingClientRect(),g=DRAG.el.cloneNode(true);g.classList.add('drag-ghost');g.removeAttribute('data-a');g.style.width=r.width+'px';g.style.height=r.height+'px';DRAG.ox=DRAG.x-r.left;DRAG.oy=DRAG.y-r.top;document.body.appendChild(g);DRAG.g=g;DRAG.el.classList.add('dragging');
     if(DRAG.kind==='ml'&&QZ&&QZ.mm){QZ.mm.sel=DRAG.i;}}
   DRAG.g.style.transform=`translate(${e.clientX-DRAG.ox}px,${e.clientY-DRAG.oy}px)`;
   document.querySelectorAll('.drop-hover').forEach(x=>x.classList.remove('drop-hover'));
@@ -1639,14 +1666,14 @@ document.addEventListener('click',e=>{
     case 'rw-del':S.rewards=S.rewards.filter(r=>r.id!==ds.id);Store.commit();render();break;
     case 'rw-add':{const name=$('#rw-name').value.trim(),pic=$('#rw-pic').value.trim()||'🎁',tier=+$('#rw-tier').value;if(!name){toast('Nhập tên phần thưởng trước nhé');$('#rw-name').focus();return;}S.rewards.push({id:'c'+Date.now(),tier,name,pic});Store.commit();render();toast('Đã thêm phần thưởng');break;}
     case 'pin-change':{const a1=$('#pin1').value.trim(),a2=$('#pin2').value.trim();if(!/^\d{4}$/.test(a1)){toast('Mã PIN cần đúng 4 chữ số');return;}if(a1!==a2){toast('Hai mã PIN chưa khớp nhau');return;}S.pin=a1;S.pinSet=true;Store.commit();render();toast('Đã đổi mã PIN');break;}
-    case 'reset-1':$('#reset-zone').innerHTML='<span style="font-weight:800;color:var(--bad)">Chắc chắn xóa hết?</span><button class="btn bad" data-a="reset-2">Xóa hết</button><button class="btn ghost" data-a="reset-no">Thôi</button>';break;
-    case 'reset-no':render();break;
+    case 'del-ask':delAsk(ds.k);break;
+    case 'del-do':delDo(ds.k);break;
+    case 'del-no':render();break;
     case 'bk-copy':{const txt=JSON.stringify(S);const ta=$('#bk-text');const fallback=()=>{ta.value=txt;ta.focus();ta.select();toast('Mã đã hiện trong ô bên dưới, bấm giữ để sao chép');};
       try{navigator.clipboard.writeText(txt).then(()=>toast('Đã sao chép mã sao lưu'),fallback);}catch(err){fallback();}break;}
     case 'bk-load':{const raw=$('#bk-text').value.trim();let d=null;try{d=JSON.parse(raw);}catch(err){}
       if(!d||typeof d!=='object'||typeof d.stars!=='number'||!d.lessons){toast('Mã sao lưu không đúng. Hãy dán lại toàn bộ mã.');return;}
       const rev=S.rev||0;S=migrate(d);S.rev=Math.max(rev,d.rev||0);Store.commit();render();toast(`Đã khôi phục: ${S.stars} sao`);break;}
-    case 'reset-2':{const pin=S.pin,pinSet=S.pinSet,rev=S.rev;S=fresh();S.pin=pin;S.pinSet=pinSet;S.rev=rev;Store.commit();go({v:'home'});toast('Đã xóa toàn bộ tiến độ');break;}
   }
 });
 document.addEventListener('change',e=>{if(e.target.id==='v-vi'||e.target.id==='v-en'){const en=e.target.id==='v-en';if(en)S.voiceEn=e.target.value;else S.voiceVi=e.target.value;Store.commit();sayParts(en?[['Hello Minh An! Let\'s learn English!','en']]:[['Chào Minh An! Cô đây nè!','vi']]);return;}if(e.target.id==='autoread'){S.autoRead=e.target.checked;Store.commit();toast(S.autoRead?'Sẽ tự đọc câu hỏi':'Đã tắt tự đọc câu hỏi');}});

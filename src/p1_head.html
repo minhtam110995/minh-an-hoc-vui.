@@ -14,6 +14,7 @@
   color-scheme:light;
 }
 [hidden]{display:none!important}
+html{scroll-padding-top:90px}
 html,body{height:100%}
 body{
   background-color:var(--paper);
@@ -182,7 +183,7 @@ h1,h2,h3{font-family:var(--display);line-height:1.15;margin:0;text-wrap:balance}
 .qsub{display:block;font-size:15px;font-weight:700;color:var(--muted);margin-top:2px}
 .teacher .bubble .qsub{font-size:14px}
 [data-drag]{touch-action:none;-webkit-user-select:none;user-select:none}
-.ghost{position:fixed;left:0;top:0;z-index:80;pointer-events:none;opacity:.92;box-shadow:0 10px 24px rgba(0,0,0,.25)!important;margin:0}
+.drag-ghost{position:fixed;left:0;top:0;z-index:80;pointer-events:none;opacity:.92;box-shadow:0 10px 24px rgba(0,0,0,.25)!important;margin:0}
 .dragging{opacity:.35}
 .drop-hover{outline:4px dashed var(--c);outline-offset:3px}
 .tile.letter{min-width:58px;font-family:var(--display);font-size:32px;text-transform:lowercase}
