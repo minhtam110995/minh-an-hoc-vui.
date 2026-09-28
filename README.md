@@ -17,5 +17,5 @@ Chỉ cần mở `index.html` trong trình duyệt. Không cần cài đặt gì
 - **GitHub Pages**: Settings → Pages → Source: *Deploy from a branch* → `main` / `(root)`.
 
 ## Sửa nội dung
-Nội dung nằm trong `src/`: `p3_math.js` (Toán), `p4_tv.js` (Tiếng Việt), `p5_en.js` (Tiếng Anh), `p6_dd.js` (Đạo đức), `p7_app.js` (giao diện, sao, phần thưởng).
+Nội dung nằm trong `src/`: `p3_math.js` (Toán), `p4_tv.js` (Tiếng Việt), `p5_en.js` (Tiếng Anh), `p6_dd.js` (Đạo đức), `p7_app.js` (giao diện, sao, phần thưởng), `p8_games.js` (khu vui chơi).
 Sửa xong chạy `sh build.sh` để ghép lại `index.html`.

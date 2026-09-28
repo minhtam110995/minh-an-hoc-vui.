@@ -40,33 +40,41 @@ const EN_PIC=Object.fromEntries(EN_ALL.map(w=>[w.en,w.pic]));
 const enOptPic=w=>({pic:w.pic,k:w.en,say:w.en,lang:'en'});
 const enOptWord=w=>({t:w.en,k:w.en});
 function enOthers(w){return shuffle(EN_ALL.filter(x=>x.en!==w.en&&x.pic!==w.pic));}
+const bigPic=p=>`<div class="pic-lg">${picHTML(p)}</div>`;
+function enMatchSet(ws){
+  const pool=[...shuffle(ws)];for(const x of shuffle(EN_ALL)){if(pool.length>=4)break;if(!pool.some(y=>y.en===x.en||y.pic===x.pic))pool.push(x);}
+  return pool.slice(0,4);
+}
 function enGens(u){
   const ws=EN_ALL.filter(x=>x.u===u.n);
   const g=[
-    ()=>{const w=pick(ws);return Q('Nghe và chọn hình đúng',enOptPic(w),enOthers(w).map(enOptPic),{audio:{text:w.en,lang:'en'},cols:4});},
-    ()=>{const w=pick(ws);return Q('Đây là gì? (What is it?)',enOptWord(w),[...ws.filter(x=>x!==w),...enOthers(w)].map(enOptWord),{visual:`<div class="pic-lg">${picHTML(w.pic)}</div>`,cols:2,optLang:'en'});},
-    ()=>{const Lc=u.L.toLowerCase();const starts=ws.filter(x=>x.en[0].toLowerCase()===Lc);const mode=starts.length?'bắt đầu bằng':'có';const good=starts.length?starts:ws.filter(x=>x.en.toLowerCase().includes(Lc));if(!good.length)return null;const w=pick(good);
+    ()=>{const w=pick(ws);return Q('Listen and choose.',enOptPic(w),enOthers(w).map(enOptPic),{sub:'Nghe và chọn hình đúng',audio:{text:w.en,lang:'en'},cols:4});},
+    ()=>{const w=pick(ws);return Q('What is it?',enOptWord(w),[...ws.filter(x=>x!==w),...enOthers(w)].map(enOptWord),{sub:'Đây là gì? Chọn từ đúng',visual:bigPic(w.pic),cols:2,optLang:'en'});},
+    ()=>{const Lc=u.L.toLowerCase();const starts=ws.filter(x=>x.en[0].toLowerCase()===Lc);const good=starts.length?starts:ws.filter(x=>x.en.toLowerCase().includes(Lc));if(!good.length)return null;const w=pick(good);
       const bad=EN_ALL.filter(x=>starts.length?x.en[0].toLowerCase()!==Lc:!x.en.toLowerCase().includes(Lc));
-      return Q(`Từ nào ${mode} chữ ${u.L}?`,{pic:w.pic,t:w.en,k:w.en},shuffle(bad).map(x=>({pic:x.pic,t:x.en,k:x.en})),{cols:2,optLang:'en',say:`Từ nào ${mode} chữ "${u.L}"`});},
-    ()=>{const w=pick(ws);return Q(`"${w.en}" nghĩa là gì?`,{pic:w.pic,t:w.vi,k:w.vi},enOthers(w).map(x=>({pic:x.pic,t:x.vi,k:x.vi})),{audio:{text:w.en,lang:'en'},cols:2});}
+      return Q(starts.length?`Which word starts with the letter ${u.L}?`:`Which word has the letter ${u.L}?`,{pic:w.pic,t:w.en,k:w.en},shuffle(bad).map(x=>({pic:x.pic,t:x.en,k:x.en})),{sub:starts.length?`Từ nào bắt đầu bằng chữ ${u.L}?`:`Từ nào có chữ ${u.L}?`,cols:2,optLang:'en'});},
+    ()=>{const w=pick(ws);return Q(`What does "${w.en}" mean?`,{pic:w.pic,t:w.vi,k:w.vi},enOthers(w).map(x=>({pic:x.pic,t:x.vi,k:x.vi})),{sub:'Từ này nghĩa là gì?',audio:{text:w.en,lang:'en'},cols:2});},
+    ()=>({type:'match',prompt:'Match the pictures and the words.',sub:'Nối hình với từ đúng: chạm hoặc kéo hình vào từ',pairs:enMatchSet(ws).map(w=>({pic:w.pic,t:w.en}))}),
+    ()=>{const c=ws.filter(w=>w.en.length<=6&&!w.en.includes(' '));if(!c.length)return null;const w=pick(c);
+      return {type:'order',prompt:'Spell the word.',sub:'Kéo các chữ cái để xếp thành từ',items:w.en.split(''),audio:{text:w.en,lang:'en'},visual:bigPic(w.pic),lang:'en',letters:true};}
   ];
   if(u.pat){const [tpl,list]=u.pat;const S=x=>tpl.replace('{w}',x);
-    g.push(()=>{const x=pick(list);return Q('Câu nào đúng với hình?',S(x),list.filter(y=>y!==x).map(S),{visual:`<div class="pic-lg">${picHTML(EN_PIC[x])}</div>`,cols:1,optLang:'en'});});
-    g.push(()=>{const x=pick(list);return {type:'order',prompt:'Nghe và xếp các từ thành câu',items:S(x).split(' '),audio:{text:S(x),lang:'en'},visual:`<div class="pic-lg">${picHTML(EN_PIC[x])}</div>`,lang:'en'};});
+    g.push(()=>{const x=pick(list);return Q('Choose the right sentence.',S(x),list.filter(y=>y!==x).map(S),{sub:'Chọn câu đúng với hình',visual:bigPic(EN_PIC[x]),cols:1,optLang:'en'});});
+    g.push(()=>{const x=pick(list);return {type:'order',prompt:'Listen and put the words in order.',sub:'Nghe rồi kéo các từ thành câu',items:S(x).split(' '),audio:{text:S(x),lang:'en'},visual:bigPic(EN_PIC[x]),lang:'en'};});
   }
   if(u.sent){
-    g.push(()=>Q('Khi gặp bạn mới, con giới thiệu mình thế nào?',"Hi, I'm Minh An.",['Bye, Minh An.','I have a ball.','Touch your head.'],{visual:'<div class="pic-lg">👋</div>',cols:1,optLang:'en'}));
-    g.push(()=>Q('Khi ra về, con chào bạn thế nào?','Bye, Linh.',["Hi, I'm Linh.",'I like milk.',"That's a monkey."],{visual:'<div class="pic-lg">🏫</div>',cols:1,optLang:'en'}));
-    g.push(()=>({type:'order',prompt:'Nghe và xếp các từ thành câu',items:["Hi,","I'm","Bill."],audio:{text:"Hi, I'm Bill.",lang:'en'},lang:'en'}));
+    g.push(()=>Q('You meet a new friend. What do you say?',"Hi, I'm Minh An.",['Bye, Minh An.','I have a ball.','Touch your head.'],{sub:'Gặp bạn mới, con nói gì?',visual:bigPic('👋'),cols:1,optLang:'en'}));
+    g.push(()=>Q('It is time to go home. What do you say?','Bye, Linh.',["Hi, I'm Linh.",'I like milk.',"That's a monkey."],{sub:'Lúc ra về, con chào bạn thế nào?',visual:bigPic('🏫'),cols:1,optLang:'en'}));
+    g.push(()=>({type:'order',prompt:'Listen and put the words in order.',sub:'Nghe rồi kéo các từ thành câu',items:["Hi,","I'm","Bill."],audio:{text:"Hi, I'm Bill.",lang:'en'},lang:'en'}));
   }
-  if(u.count){g.push(()=>{const w=pick(ws),n=rint(2,5);return Q(`How many ${w.en}?`,cap(EN_NUM[n])+'.',[2,3,4,5].filter(x=>x!==n).map(x=>cap(EN_NUM[x])+'.'),{visual:grp(picHTML(w.pic),n),audio:{text:`How many ${w.en}?`,lang:'en'},cols:2,optLang:'en'});});
-    g.push(()=>{const n=rint(1,10);return Q('Nghe và chọn số đúng',n,numOpts(n,1,10),{audio:{text:EN_NUM[n],lang:'en'},cols:4,big:true});});}
-  if(u.run){g.push(()=>{const he=Math.random()<.5;const c=he?"He's running.":"She's running.";return Q('Câu nào đúng với hình?',c,[he?"She's running.":"He's running.","He's having nuts.","I like fish."],{visual:`<div class="pic-lg">${he?'🏃‍♂️':'🏃‍♀️'}</div>`,cols:1,optLang:'en'});});}
+  if(u.count){g.push(()=>{const w=pick(ws),n=rint(2,5);return Q(`How many ${w.en}?`,cap(EN_NUM[n])+'.',[2,3,4,5].filter(x=>x!==n).map(x=>cap(EN_NUM[x])+'.'),{sub:'Có bao nhiêu? Đếm rồi chọn',visual:grp(picHTML(w.pic),n),cols:2,optLang:'en'});});
+    g.push(()=>{const n=rint(1,10);return Q('Listen and choose the number.',n,numOpts(n,1,10),{sub:'Nghe và chọn số đúng',audio:{text:EN_NUM[n],lang:'en'},cols:4,big:true});});}
+  if(u.run){g.push(()=>{const he=Math.random()<.5;const c=he?"He's running.":"She's running.";return Q('Choose the right sentence.',c,[he?"She's running.":"He's running.","He's having nuts.","I like fish."],{sub:'Chọn câu đúng với hình',visual:bigPic(he?'🏃‍♂️':'🏃‍♀️'),cols:1,optLang:'en'});});}
   if(u.having){const foods=['noodles','nuts','bananas','chips'];g.push(()=>{const he=Math.random()<.5,f=pick(foods);const S=(p,x)=>`${p}'s having ${x}.`;const c=S(he?'He':'She',f);
-    return Q('Câu nào đúng với hình?',c,[S(he?'She':'He',f),S(he?'He':'She',pick(foods.filter(x=>x!==f))),S(he?'She':'He',pick(foods.filter(x=>x!==f)))],{visual:`<div class="pic-lg">${he?'👦':'👧'} ${EN_PIC[f]}</div>`,cols:1,optLang:'en'});});
-    g.push(()=>{const f=pick(foods);const s=`She's having ${f}.`;return {type:'order',prompt:'Nghe và xếp các từ thành câu',items:s.split(' '),audio:{text:s,lang:'en'},visual:`<div class="pic-lg">👧 ${EN_PIC[f]}</div>`,lang:'en'};});}
-  if(u.win){g.push(()=>{const n=rint(6,10);const S=x=>`I can see ${EN_NUM[x]} windows.`;return Q('How many windows can you see?',S(n),[6,7,8,9,10].filter(x=>x!==n).map(S),{visual:grp('🪟',n,'sm'),audio:{text:'How many windows can you see?',lang:'en'},cols:1,optLang:'en'});});
-    g.push(()=>{const n=rint(6,10);return Q('Nghe và chọn số đúng',n,numOpts(n,1,10),{audio:{text:EN_NUM[n],lang:'en'},cols:4,big:true});});}
+    return Q('Choose the right sentence.',c,[S(he?'She':'He',f),S(he?'He':'She',pick(foods.filter(x=>x!==f))),S(he?'She':'He',pick(foods.filter(x=>x!==f)))],{sub:'Chọn câu đúng với hình',visual:`<div class="pic-lg">${he?'👦':'👧'} ${EN_PIC[f]}</div>`,cols:1,optLang:'en'});});
+    g.push(()=>{const f=pick(foods);const s=`She's having ${f}.`;return {type:'order',prompt:'Listen and put the words in order.',sub:'Nghe rồi kéo các từ thành câu',items:s.split(' '),audio:{text:s,lang:'en'},visual:`<div class="pic-lg">👧 ${EN_PIC[f]}</div>`,lang:'en'};});}
+  if(u.win){g.push(()=>{const n=rint(6,10);const S=x=>`I can see ${EN_NUM[x]} windows.`;return Q('How many windows can you see?',S(n),[6,7,8,9,10].filter(x=>x!==n).map(S),{sub:'Con thấy mấy cửa sổ?',visual:grp('🪟',n,'sm'),cols:1,optLang:'en'});});
+    g.push(()=>{const n=rint(6,10);return Q('Listen and choose the number.',n,numOpts(n,1,10),{sub:'Nghe và chọn số đúng',audio:{text:EN_NUM[n],lang:'en'},cols:4,big:true});});}
   return g;
 }
 function enSentences(u){

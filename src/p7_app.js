@@ -15,7 +15,7 @@ const PASS=80,WIN=3,LOSE=1;
 
 const todayStr=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const fmtDate=iso=>{const d=new Date(iso);return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;};
-function fresh(){return {v:1,rev:0,stars:0,earned:0,spent:0,pin:'1234',pinSet:false,autoRead:true,lessons:{},challenges:{},vouchers:[],rewards:DEFAULT_REWARDS.map(r=>({...r})),history:[],streak:{n:0,last:''},lastLesson:null,quiz:null,voiceVi:'',voiceEn:''};}
+function fresh(){return {games:{},story:[],v:1,rev:0,stars:0,earned:0,spent:0,pin:'1234',pinSet:false,autoRead:true,lessons:{},challenges:{},vouchers:[],rewards:DEFAULT_REWARDS.map(r=>({...r})),history:[],streak:{n:0,last:''},lastLesson:null,quiz:null,voiceVi:'',voiceEn:''};}
 const migrate=d=>Object.assign(fresh(),d||{});
 let S=fresh();
 
@@ -91,7 +91,7 @@ const T_OK=['Giỏi quá Minh An ơi!','Đúng rồi! Con giỏi lắm!','Chính
 const T_OK_EN=['Excellent!','Good job!','Well done!','Great!','Super!'];
 const T_NO=['Chưa đúng rồi, không sao đâu con.','Ôi, suýt nữa thì đúng rồi!','Chưa đúng con ạ, mình nhớ nhé.','Không sao, sai thì mình học tiếp nha con.'];
 const T_INTRO=['Cô hỏi nè.','Câu tiếp theo nhé con.','Con nghe cô hỏi nhé.','Mình cùng làm câu này nào.','Con cố lên nhé.'];
-const teacher=(text,sayText,lang)=>`<div class="teacher"><span class="ava" aria-hidden="true">👩‍🏫</span><div class="bubble">${esc(text)}</div>${sayText?`<button class="say sm" data-a="say" data-mix="${lang==='mix'?1:''}" data-say="${esc(sayText)}" aria-label="Nghe cô nói">${SPEAKER}</button>`:''}</div>`;
+const teacher=(text,sayText,lang,sub)=>`<div class="teacher"><span class="ava" aria-hidden="true">👩‍🏫</span><div class="bubble">${esc(text)}${sub?`<span class="qsub">${esc(sub)}</span>`:''}</div>${sayText?`<button class="say sm" data-a="say" data-lang="${lang==='en'?'en':'vi'}" data-say="${esc(sayText)}" aria-label="Nghe cô nói">${SPEAKER}</button>`:''}</div>`;
 let AC=null;
 function chime(ok){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime;(ok?[660,880,1175]:[330,247]).forEach((f,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.type=ok?'sine':'triangle';o.frequency.value=f;const s=t+i*.11;g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(.22,s+.02);g.gain.exponentialRampToValueAtTime(.0001,s+.28);o.connect(g).connect(AC.destination);o.start(s);o.stop(s+.3);});}catch(e){}}
 function burst(){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const b=document.createElement('div');b.className='burst';for(let i=0;i<26;i++){const s=document.createElement('span');s.textContent=pick(['⭐','🌟','✨','🎉']);s.style.left=Math.random()*100+'%';s.style.animationDelay=(Math.random()*.6)+'s';b.appendChild(s);}document.body.appendChild(b);setTimeout(()=>b.remove(),2800);}
@@ -112,14 +112,15 @@ function go(n){
   if(QZ&&!QZ.done&&QZ.res.length>0&&!(n.v==='lesson'&&n.id===QZ.id&&n.tab==='practice')){confirmQuit(()=>go(n));return;}
   if(!(n.v==='lesson'&&n.tab==='practice')){if(QZ&&!QZ.done&&S.quiz){S.quiz=null;Store.commit();}QZ=null;}
   if(n.v!=='parent')PARENT=false;
+  if(typeof stopGame==='function')stopGame();
   NAV=n;render();window.scrollTo(0,0);
 }
-function refresh(){renderTop();if(!(NAV.v==='lesson'&&QZ))render();}
+function refresh(){renderTop();if(!(NAV.v==='lesson'&&QZ)&&NAV.v!=='game')render();}
 function render(){
   renderTop();
   const v=NAV.v;let h='';
-  if(v==='home')h=vHome();else if(v==='subj')h=vSubj();else if(v==='lesson')h=vLesson();else if(v==='rewards')h=vRewards();else if(v==='parent')h=vParent();
-  $('#view').innerHTML=h;
+  if(v==='home')h=vHome();else if(v==='subj')h=vSubj();else if(v==='lesson')h=vLesson();else if(v==='rewards')h=vRewards();else if(v==='parent')h=vParent();else if(v==='games')h=vGames();else if(v==='game')h=vGame();
+  $('#view').innerHTML=h;if(v==='game')mountGame();
 }
 function renderTop(){
   $('#topbar').innerHTML=`<button class="brand" data-a="home" aria-label="Về trang chính"><span class="seal">★</span><span>Minh An<small>Học vui · Đổi quà</small></span></button>
@@ -140,7 +141,7 @@ function vHome(){
   let h=`<section class="hello"><div><h1>Chào Minh An!</h1><p>${greet()}</p></div>${st?`<span class="chip try" style="font-size:16px;padding:6px 12px">🔥 ${st} ngày liền</span>`:''}</section>
   <section class="goal">${goal}<div class="muted" style="font-size:15px;font-weight:700">Mỗi bài: đúng từ 80% trở lên được +${WIN} sao · dưới 80% bị −${LOSE} sao.</div></section>
   <section class="subjects">${SUBJ.map(s=>{const ls=subjLessons(s.id),d=ls.filter(passed).length,p=Math.round(d/ls.length*100);
-    return `<button class="subj" style="--c:${s.c}" data-a="subj" data-s="${s.id}"><span class="glyph">${s.glyph}</span><span><h2>${s.name}</h2><div class="meta">${d}/${ls.length} bài đã đạt · ${esc(s.book.split(' · ')[1])}</div><div class="bar-prog"><i style="width:${p}%"></i></div></span></button>`;}).join('')}</section>`;
+    return `<button class="subj" style="--c:${s.c}" data-a="subj" data-s="${s.id}"><span class="glyph">${s.glyph}</span><span><h2>${s.name}</h2><div class="meta">${d}/${ls.length} bài đã đạt · ${esc(s.book.split(' · ')[1])}</div><div class="bar-prog"><i style="width:${p}%"></i></div></span></button>`;}).join('')}</section>${gamesHomeHTML()}`;
   if(S.lastLesson&&L[S.lastLesson]){const l=L[S.lastLesson],sj=SUBJ_BY[l.subj];const nxt=passed(l.id)?nextLesson(l.id):l.id;const nl=L[nxt];
     if(nl)h+=`<div class="sec-title"><h2>${passed(l.id)?'Bài tiếp theo':'Học tiếp'}</h2></div><button class="task" style="--c:${SUBJ_BY[nl.subj].c}" data-a="lesson" data-id="${nl.id}"><i class="dot"></i><span><b>${esc(nl.title)}</b><span>${SUBJ_BY[nl.subj].name} · ${esc(nl.topic)}</span></span><span class="chip">Vào học ›</span></button>`;}
   const todo=Object.entries(S.challenges).filter(([id,c])=>c.st==='todo'&&L[id]);
@@ -185,8 +186,8 @@ function learnHTML(l){
       `<div class="lcard" style="grid-column:1/-1"><p>Mẫu câu</p>${enSentences(u).map(s=>`<div class="row"><span class="enpat">${esc(s)}</span>${sayBtn(s,'en',1)}</div>`).join('')}</div>`;}
   else if(l.enReview){cards=EN.map(u=>`<div class="lcard"><div class="top"><p>Unit ${u.n}: ${esc(u.t)}</p>${sayBtn(u.w.filter(w=>!w[3]).map(w=>w[0]).join(', '),'en',1)}</div><div class="exw">${u.w.filter(w=>!w[3]).map(w=>`<button data-a="say" data-lang="en" data-say="${esc(w[0])}"><span class="e">${picHTML(w[2])}</span>${esc(w[0])}</button>`).join('')}</div></div>`).join('');}
   else if(l.learnLines){cards=l.learnLines.map((t,i)=>`<div class="lcard"><div class="top"><span class="unit" style="font-size:40px">${i+1}</span>${sayBtn(t)}</div><p>${esc(t)}</p></div>`).join('');}
-  const hi=l.subj==='en'?`Hello ${KID}! Hôm nay cô cùng con học bài "${l.title.replace(/^Unit \d+: /,'')}". Con chạm vào cái loa để nghe cô đọc, rồi đọc theo cô nhé!`:`Chào ${KID}! Hôm nay cô cùng con học bài ${l.title}. Con chạm vào cái loa để nghe cô đọc, rồi đọc theo cô nhé!`;
-  return `${teacher(hi,hi,l.subj==='en'?'mix':'vi')}<div class="learn">${cards}</div><div class="cta"><button class="btn" data-a="tab" data-t="practice">Luyện tập ngay ›</button></div>`;
+  const en=l.subj==='en',hi=en?`Hello ${KID}! Let's learn ${l.title.replace(/^Unit \d+: /,'')}. Listen and say it with me!`:`Chào ${KID}! Hôm nay cô cùng con học bài ${l.title}. Con chạm vào cái loa để nghe cô đọc, rồi đọc theo cô nhé!`;
+  return `${teacher(hi,hi,en?'en':'vi',en?'Chào Minh An! Mình cùng học bài này nhé. Con nghe cô đọc rồi đọc theo nha!':'')}<div class="learn">${cards}</div><div class="cta"><button class="btn" data-a="tab" data-t="practice">Luyện tập ngay ›</button></div>`;
 }
 function practiceHTML(l){
   if(!QZ||QZ.id!==l.id){
@@ -205,25 +206,42 @@ function startQuiz(id){
   const qs=L[id].gen();
   QZ={id,qs,i:0,res:[],picked:null,sel:[],bank:null,done:false};prepQ();saveQuiz();render();speakQ();
 }
-function prepQ(){const q=QZ.qs[QZ.i];QZ.picked=null;QZ.sel=[];QZ.checked=null;
-  if(q.type==='order'){let b=range(0,q.items.length-1);for(let k=0;k<6;k++){b=shuffle(b);if(b.some((x,i)=>q.items[x]!==q.items[i]))break;}QZ.bank=b;}}
+function prepQ(){const q=QZ.qs[QZ.i];QZ.picked=null;QZ.sel=[];QZ.checked=null;QZ.mm=null;
+  if(q.type==='order'){let b=range(0,q.items.length-1);for(let k=0;k<6;k++){b=shuffle(b);if(b.some((x,i)=>q.items[x]!==q.items[i]))break;}QZ.bank=b;}
+  if(q.type==='match'){let r=range(0,q.pairs.length-1);for(let k=0;k<6;k++){r=shuffle(r);if(r.some((x,i)=>x!==i))break;}QZ.mm={sel:null,done:{},order:[],miss:0,right:r,bad:null};}}
 function isEn(){return QZ&&L[QZ.id]&&L[QZ.id].subj==='en';}
+const EN_INTRO=['Next one!','Listen carefully!','You can do it!','Here we go!','Look and think!'];
+const EN_OK=['Great job','Well done','Excellent','Super','Good job','Awesome'];
+const EN_NO=['Oops! Nice try.','Almost!','Not quite.','Good try!'];
 function qParts(q,withIntro){
   const en=isEn(),parts=[];
+  if(en){
+    if(withIntro)parts.push([QZ.i===0?`Hello ${KID}! Let's play!`:pick(EN_INTRO),'en']);
+    parts.push([q.prompt,'en']);
+    if(q.audio&&!q.prompt.includes(q.audio.text))parts.push([q.audio.text,'en']);
+    return parts;
+  }
   if(withIntro)parts.push([QZ.i===0?`Chào ${KID}! Mình cùng làm bài với cô nhé. Câu một.`:pick(T_INTRO),'vi']);
-  if(q.audio){if(/"/.test(q.prompt))parts.push(...mixParts(q.prompt,en));else{parts.push([q.type==='order'?'Con nghe cô đọc, rồi xếp lại cho đúng nhé.':'Con nghe cô đọc nhé.','vi']);parts.push([q.audio.text,q.audio.lang||'vi']);}}
-  else parts.push(...mixParts(q.say||q.prompt,en));
+  if(q.audio){if(/"/.test(q.prompt))parts.push(...mixParts(q.prompt,false));else{parts.push([q.type==='order'?'Con nghe cô đọc, rồi xếp lại cho đúng nhé.':'Con nghe cô đọc nhé.','vi']);parts.push([q.audio.text,q.audio.lang||'vi']);}}
+  else parts.push([q.say||q.prompt,'vi']);
   return parts;
 }
 function speakQ(){const q=QZ.qs[QZ.i];if(S.autoRead)sayParts(qParts(q,true));else if(q.audio)speak(q.audio.text,q.audio.lang||'vi');}
 function feedback(ok,q){
-  const en=isEn();let text,parts;
-  if(ok){const p=pick(T_OK);text=p;parts=en?[[pick(T_OK_EN),'en'],[p,'vi']]:[[p,'vi']];}
-  else{const p=pick(T_NO);let ansT='',ansL='vi';
-    if(q.type==='choice'){const o=q.options[q.answer];const O=typeof o==='object'?o:{t:String(o)};ansT=O.t||O.say||'';ansL=O.t?(q.optLang==='en'?'en':'vi'):(O.lang||'vi');}
-    else{ansT=q.items.join(' ');ansL=q.lang==='en'?'en':'vi';}
-    text=p+(ansT?` Đáp án đúng là: ${ansT}`:' Con xem đáp án tô xanh nhé.');
-    parts=[[p,'vi']];if(ansT){parts.push(['Đáp án đúng là','vi']);parts.push([ansT,ansL]);}else parts.push(['Con xem đáp án tô xanh nhé.','vi']);}
+  const en=isEn();let text,parts,ansT='',ansL='vi';
+  if(!ok){if(q.type==='choice'){const o=q.options[q.answer];const O=typeof o==='object'?o:{t:String(o)};ansT=String(O.t??O.say??'');ansL=O.t!==undefined?(q.optLang==='en'?'en':'vi'):(O.lang||'vi');if(en&&/^\d+$/.test(ansT))ansL='en';}
+    else if(q.type==='order'){ansT=q.items.join(q.letters?'':' ');ansL=q.lang==='en'?'en':'vi';}}
+  if(en){
+    if(ok){const p=`${pick(EN_OK)}, ${KID}!`;text=`${p} (Giỏi lắm con!)`;parts=[[p,'en']];}
+    else{const p=pick(EN_NO);
+      if(q.type==='match'){text=`${p} (Con nối nhầm hơi nhiều, lần sau cố lên nhé!)`;parts=[[p+' Keep practicing!','en']];}
+      else if(ansT&&ansL==='en'){text=`${p} The answer is: ${ansT}`;parts=[[p,'en'],['The answer is','en'],[ansT,'en']];}
+      else{text=`${p} (Đáp án đúng: ${ansT||'ô tô xanh'})`;parts=[[p+' Look at the green answer.','en']];}}
+  }else{
+    if(ok){const p=pick(T_OK);text=p;parts=[[p,'vi']];}
+    else{const p=pick(T_NO);text=p+(ansT?` Đáp án đúng là: ${ansT}`:' Con xem đáp án tô xanh nhé.');
+      parts=[[p,'vi']];if(ansT){parts.push(['Đáp án đúng là','vi']);parts.push([ansT,ansL]);}else parts.push(['Con xem đáp án tô xanh nhé.','vi']);}
+  }
   QZ.line=text;sayParts(parts);
 }
 function optHTML(o,i,q){
@@ -234,29 +252,46 @@ function optHTML(o,i,q){
   const speaker=(q.optLang&&hasT)?`<span class="say sm osay" role="button" tabindex="0" aria-label="Nghe" data-a="osay" data-i="${i}">${SPEAKER}</span>`:'';
   return `<button class="${cls.join(' ')}" data-a="pick" data-i="${i}">${O.html||''}${O.pic?`<span class="pic">${picHTML(O.pic)}</span>`:''}${hasT?`<span class="${O.pic||O.html?'lb':'t'}">${esc(O.t)}${O.sub?`<span class="sub">${esc(O.sub)}</span>`:''}</span>`:''}${speaker}</button>`;
 }
+function matchHTML(q){
+  const M=QZ.mm,locked=QZ.res.length>QZ.i;const col=li=>M.order.indexOf(li)%4;
+  const left=q.pairs.map((p,i)=>{const d=M.done[i]!==undefined;return `<button class="mitem ${d?'done m'+col(i):''} ${M.sel===i?'sel':''}" data-a="m-l" data-i="${i}" ${d||locked?'disabled':'data-drag="ml"'} aria-label="Hình ${i+1}"><span class="pic">${picHTML(p.pic)}</span></button>`;}).join('');
+  const right=M.right.map(j=>{const li=Object.keys(M.done).map(Number).find(k=>M.done[k]===j);const d=li!==undefined;return `<button class="mitem word ${d?'done m'+col(li):''} ${M.bad===j?'bad':''}" data-a="m-r" data-i="${j}" data-drop="mr" ${d||locked?'disabled':''}>${esc(q.pairs[j].t)}</button>`;}).join('');
+  return `<div class="match"><div class="mcol">${left}</div><div class="mcol">${right}</div></div>`;
+}
 function quizHTML(){
-  const q=QZ.qs[QZ.i],n=QZ.qs.length;
+  const q=QZ.qs[QZ.i],n=QZ.qs.length,en=isEn();
   const dots=QZ.qs.map((_,i)=>`<i class="${i<QZ.res.length?(QZ.res[i]?'ok':'no'):(i===QZ.i?'cur':'')}"></i>`).join('');
   let body='';
   if(q.type==='choice'){
     const cols=q.cols||2;
     body=`<div class="opts ${cols===1?'c1':''} ${QZ.picked!==null?'lock':''}" style="--cols:${cols}">${q.options.map((o,i)=>optHTML(o,i,q)).join('')}</div>`;
-  }else{
-    const st=QZ.checked===null?'':(QZ.checked?'ok':'no');
-    body=`<div class="order-slot ${st}" style="${q.vertical?'flex-direction:column;align-items:stretch':''}">${QZ.sel.map((bi,k)=>`<button class="tile" data-a="ord-rm" data-i="${k}" ${QZ.checked!==null?'disabled':''}>${esc(q.items[bi])}</button>`).join('')}</div>
-    <div class="order-bank">${QZ.bank.map(bi=>`<button class="tile ${QZ.sel.includes(bi)?'used':''}" data-a="ord-add" data-i="${bi}" ${QZ.checked!==null?'disabled':''}>${esc(q.items[bi])}</button>`).join('')}</div>
-    ${QZ.checked===null&&QZ.sel.length===q.items.length?'<div class="cta" style="margin:0"><button class="btn good" data-a="ord-check">Kiểm tra</button></div>':''}`;
+  }else if(q.type==='match'){body=matchHTML(q);}
+  else{
+    const st=QZ.checked===null?'':(QZ.checked?'ok':'no'),lk=QZ.checked!==null,lt=q.letters?'letter':'';
+    body=`<div class="order-slot ${st} ${lt}" data-drop="slot" style="${q.vertical?'flex-direction:column;align-items:stretch':''}">${QZ.sel.map((bi,k)=>`<button class="tile ${lt}" data-a="ord-rm" data-i="${k}" ${lk?'disabled':''}>${esc(q.items[bi])}</button>`).join('')}</div>
+    <div class="order-bank">${QZ.bank.map(bi=>{const u=QZ.sel.includes(bi);return `<button class="tile ${lt} ${u?'used':''}" data-a="ord-add" data-i="${bi}" ${lk||u?'disabled':'data-drag="tile"'}>${esc(q.items[bi])}</button>`;}).join('')}</div>
+    ${!lk&&QZ.sel.length===q.items.length?'<div class="cta" style="margin:0"><button class="btn good" data-a="ord-check">Kiểm tra</button></div>':''}`;
   }
   let fb='';
   const answered=QZ.res.length>QZ.i;
   if(answered){const ok=QZ.res[QZ.i];const last=QZ.i===n-1;
-    fb=`<div class="fb ${ok?'ok':'no'}" role="status"><span class="tline"><span class="ava" aria-hidden="true">👩‍🏫</span><span>${esc(QZ.line||(ok?'Đúng rồi!':'Chưa đúng rồi.'))}</span></span><button class="btn ${ok?'good':''}" data-a="next">${last?'Xem kết quả':'Câu tiếp'} ›</button></div>`;}
+    fb=`<div class="fb ${ok?'ok':'no'}" role="status"><span class="tline"><span class="ava" aria-hidden="true">👩‍🏫</span><span>${esc(QZ.line||(ok?'Đúng rồi!':'Chưa đúng rồi.'))}</span></span><button class="btn ${ok?'good':''}" data-a="next">${last?(en?'Finish · Xem kết quả':'Xem kết quả'):(en?'Next · Câu tiếp':'Câu tiếp')} ›</button></div>`;}
+  const bub=en?(QZ.i===0?[`Hello ${KID}! Let's play!`,'Chào Minh An! Mình cùng chơi nhé!']:pick([['You can do it!','Con làm được mà!'],['Look and think!','Nhìn kĩ và suy nghĩ nhé!'],['Tap the speaker to listen again.','Chạm loa để nghe lại nhé.']]))
+    :[QZ.i===0?`Chào ${KID}! Cô hỏi nè, con chạm loa để nghe lại nhé.`:pick(['Cô hỏi nè!','Con suy nghĩ kĩ nhé!','Con làm được mà!','Chạm loa để nghe cô đọc lại nhé.'])];
   return `<div class="quiz"><div class="qtop"><div class="dots" aria-label="Câu ${QZ.i+1} trên ${n}">${dots}</div><span style="font-weight:800">${QZ.i+1}/${n}</span><button class="icon-btn" data-a="quit" style="height:40px">Thoát</button></div>
-  ${answered?'':teacher(QZ.i===0?`Chào ${KID}! Cô hỏi nè, con chạm loa để nghe lại nhé.`:pick(['Cô hỏi nè!','Con suy nghĩ kĩ nhé!','Con làm được mà!','Chạm loa để nghe cô đọc lại nhé.']))}
-  <div class="qcard"><div class="prompt"><button class="say" data-a="qsay" aria-label="Đọc câu hỏi">${SPEAKER}</button><span class="tx">${esc(q.prompt)}</span></div>
+  ${answered?'':teacher(bub[0],null,null,bub[1])}
+  <div class="qcard"><div class="prompt"><button class="say" data-a="qsay" aria-label="Đọc câu hỏi">${SPEAKER}</button><span class="tx">${esc(q.prompt)}${q.sub?`<span class="qsub">${esc(q.sub)}</span>`:''}</span></div>
   ${q.audio?`<div class="visual"><button class="listen" data-a="listen" aria-label="Nghe lại">${SPEAKER}</button></div>`:''}
   ${q.visual?`<div class="visual">${q.visual}</div>`:''}
   ${body}</div>${fb}</div>`;
+}
+function ordAdd(i){if(!QZ||QZ.checked!==null)return;if(!QZ.sel.includes(i)){QZ.sel.push(i);const q=QZ.qs[QZ.i];if(q.lang==='en')speak(q.items[i],'en');}render();}
+function matchTry(i,j){
+  const q=QZ.qs[QZ.i],M=QZ.mm;if(!M||QZ.res.length>QZ.i||M.done[i]!==undefined)return;
+  if(i===j){M.done[i]=j;M.order.push(i);M.sel=null;M.bad=null;
+    if(M.order.length===q.pairs.length){answer(M.miss<=1);saveQuiz();}else{chime(true);speak(q.pairs[j].t,'en');}}
+  else{M.miss++;M.bad=j;M.sel=null;chime(false);speak(pick(['Try again!','Oops! Try again.','Not this one!']),'en');setTimeout(()=>{if(QZ&&QZ.mm===M){M.bad=null;render();}},700);}
+  render();
 }
 function saveQuiz(){S.quiz=QZ&&!QZ.done?JSON.parse(JSON.stringify(QZ)):null;Store.commit();}
 function resumeQuiz(){if(QZ||!S.quiz||!L[S.quiz.id]||S.quiz.done)return false;QZ=JSON.parse(JSON.stringify(S.quiz));NAV={v:'lesson',id:QZ.id,tab:'practice'};render();window.scrollTo(0,0);toast(`Con làm tiếp bài đang dở nhé (câu ${QZ.i+1}/${QZ.qs.length})`);return true;}
@@ -272,14 +307,17 @@ function finishQuiz(forced){
   else{delta=addStars(-LOSE,`${forced?'Bỏ dở':'Chưa đạt'} ${pct}% · ${SUBJ_BY[l.subj].name}: ${l.title}`);}
   touchStreak();S.lastLesson=l.id;S.quiz=null;Store.commit();
   QZ.done=true;QZ.result={pct,correct,n,pass,delta,counted};
-  QZ.result.line=pass&&counted?`Hoan hô ${KID}! Con làm đúng ${correct} trên ${n} câu và được cộng ba ngôi sao rồi. Cô tự hào về con lắm!`:pass?`Giỏi lắm ${KID}! Con làm đúng ${correct} trên ${n} câu. Luyện thêm là con càng giỏi hơn đó!`:`${KID} ơi, lần này con đúng ${correct} trên ${n} câu, chưa đủ tám mươi phần trăm. Không sao đâu con, mình xem lại bài học rồi thử lại với cô nhé!`;
-  if(!forced){render();if(pass&&counted)burst();speak(QZ.result.line);window.scrollTo({top:0});}
+  if(l.subj==='en'){QZ.result.line=pass&&counted?`Hooray! Well done, ${KID}! You got ${correct} out of ${n}. Three stars for you!`:pass?`Great job, ${KID}! You got ${correct} out of ${n}.`:`Good try, ${KID}! You got ${correct} out of ${n}. Let's practice and try again!`;
+    QZ.result.sub=pass&&counted?`Hoan hô! Con đúng ${correct}/${n} câu, được cộng 3 sao!`:pass?`Giỏi lắm! Con đúng ${correct}/${n} câu.`:`Con đúng ${correct}/${n} câu. Mình luyện thêm rồi thử lại nhé!`;
+    QZ.result.lang='en';}
+  else QZ.result.line=pass&&counted?`Hoan hô ${KID}! Con làm đúng ${correct} trên ${n} câu và được cộng ba ngôi sao rồi. Cô tự hào về con lắm!`:pass?`Giỏi lắm ${KID}! Con làm đúng ${correct} trên ${n} câu. Luyện thêm là con càng giỏi hơn đó!`:`${KID} ơi, lần này con đúng ${correct} trên ${n} câu, chưa đủ tám mươi phần trăm. Không sao đâu con, mình xem lại bài học rồi thử lại với cô nhé!`;
+  if(!forced){render();if(pass&&counted)burst();speak(QZ.result.line,QZ.result.lang||'vi');window.scrollTo({top:0});}
 }
 function resultHTML(l){
   const R=QZ.result;
   let d='';if(!R.counted)d=`<div class="delta zero">Hôm nay bài này đã nhận sao rồi</div>`;else if(R.delta>0)d=`<div class="delta plus">+${R.delta} sao</div>`;else if(R.delta<0)d=`<div class="delta minus">${R.delta} sao</div>`;else d=`<div class="delta zero">Chưa có sao để trừ</div>`;
   const msg=R.pass?'Con làm rất tốt! Giờ thử làm ở ngoài đời nhé.':'Chưa đủ 80%. Con xem lại bài học rồi làm lại nhé!';
-  return `<div class="result">${R.line?teacher(R.line,R.line):''}<div class="ring" style="--p:${R.pct};--rc:${R.pass?'var(--good)':'var(--bad)'}"><div><b>${R.pct}%</b><span>${R.correct}/${R.n} câu đúng</span></div></div>${d}<h2>${msg}</h2>
+  return `<div class="result">${R.line?teacher(R.line,R.line,R.lang||'vi',R.sub):''}<div class="ring" style="--p:${R.pct};--rc:${R.pass?'var(--good)':'var(--bad)'}"><div><b>${R.pct}%</b><span>${R.correct}/${R.n} câu đúng</span></div></div>${d}<h2>${msg}</h2>
   <div class="row" style="justify-content:center">${R.pass?`<button class="btn gold" data-a="tab" data-t="real">Thử thách ngoài đời ›</button>`:`<button class="btn ghost" data-a="tab" data-t="learn">Xem lại bài học</button>`}<button class="btn ${R.pass?'ghost':''}" data-a="start">Làm lại</button></div></div>`;
 }
 function confirmQuit(then){
@@ -295,7 +333,8 @@ function realHTML(l){
   if(ch&&ch.st==='done')st=`<div class="fb ok">🏅 Con đã hoàn thành thử thách này ngày ${fmtDate(ch.d).split(' ')[0]}. Giỏi lắm!</div>`;
   else st=`<div class="row" style="justify-content:center"><button class="btn good" data-a="real-done" data-id="${l.id}">Con làm xong rồi · Nhờ bố mẹ xác nhận</button>${ch&&ch.st==='todo'?'<span class="chip try">Đã ghi vào danh sách thử thách</span>':`<button class="btn ghost" data-a="real-later" data-id="${l.id}">Để sau, nhắc con nhé</button>`}</div>`;
   const rt=`${KID} ơi, giờ mình mang bài học ra ngoài đời nhé! Con làm xong thì nhờ bố mẹ xác nhận để nhận sao.`;
-  return `<div class="real">${teacher(rt,rt)}<div class="ticket"><div class="row" style="justify-content:space-between"><span class="eyebrow">Thử thách ngoài đời · +${WIN} sao</span>${sayBtn(l.real)}</div><p>${esc(l.real)}</p></div>${st}
+  const enr=l.subj==='en';
+  return `<div class="real">${enr?teacher("Let's use English at home!","Let's use English at home!",'en','Mình dùng tiếng Anh ở nhà nhé! Làm xong nhờ bố mẹ xác nhận để nhận sao.'):teacher(rt,rt)}<div class="ticket"><div class="row" style="justify-content:space-between"><span class="eyebrow">Thử thách ngoài đời · +${WIN} sao</span>${sayBtn(l.real)}</div><p>${esc(l.real)}</p></div>${st}
   <p class="muted" style="text-align:center;font-weight:700;margin:0">Bố mẹ xác nhận bằng mã PIN. Làm tốt được +${WIN} sao, chưa làm được bị −${LOSE} sao.</p></div>`;
 }
 function judgeChallenge(id,ok){
@@ -378,9 +417,32 @@ function drawPin(err){
 function pinKey(k){if(!PIN)return;PIN.buf+=k;if(PIN.buf.length<4){drawPin();return;}
   if(PIN.buf===S.pin){const cb=PIN.cb;closeModal();cb();}else{PIN.buf='';drawPin(true);}}
 
+/* ---------- drag and drop (touch + mouse) ---------- */
+let DRAG=null,SUPPRESS=false;
+document.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-drag]');if(!el||el.disabled)return;DRAG={el,x:e.clientX,y:e.clientY,moved:false,kind:el.dataset.drag,i:+el.dataset.i};});
+document.addEventListener('pointermove',e=>{
+  if(!DRAG)return;const dx=e.clientX-DRAG.x,dy=e.clientY-DRAG.y;if(!DRAG.moved&&Math.hypot(dx,dy)<10)return;
+  if(!DRAG.moved){DRAG.moved=true;const r=DRAG.el.getBoundingClientRect(),g=DRAG.el.cloneNode(true);g.classList.add('ghost');g.removeAttribute('data-a');g.style.width=r.width+'px';g.style.height=r.height+'px';DRAG.ox=DRAG.x-r.left;DRAG.oy=DRAG.y-r.top;document.body.appendChild(g);DRAG.g=g;DRAG.el.classList.add('dragging');
+    if(DRAG.kind==='ml'&&QZ&&QZ.mm){QZ.mm.sel=DRAG.i;}}
+  DRAG.g.style.transform=`translate(${e.clientX-DRAG.ox}px,${e.clientY-DRAG.oy}px)`;
+  document.querySelectorAll('.drop-hover').forEach(x=>x.classList.remove('drop-hover'));
+  const t=document.elementFromPoint(e.clientX,e.clientY),d=t&&t.closest('[data-drop]');if(d)d.classList.add('drop-hover');
+},{passive:true});
+function endDrag(e,cancel){
+  if(!DRAG)return;const d=DRAG;DRAG=null;if(!d.moved)return;SUPPRESS=true;setTimeout(()=>SUPPRESS=false,80);
+  d.g.remove();d.el.classList.remove('dragging');document.querySelectorAll('.drop-hover').forEach(x=>x.classList.remove('drop-hover'));
+  if(cancel)return;const t=document.elementFromPoint(e.clientX,e.clientY),drop=t&&t.closest('[data-drop]');
+  if(!drop){if(d.kind==='ml')render();return;}
+  if(d.kind==='tile'&&drop.dataset.drop==='slot')ordAdd(d.i);
+  else if(d.kind==='ml'&&drop.dataset.drop==='mr')matchTry(d.i,+drop.dataset.i);
+}
+document.addEventListener('pointerup',e=>endDrag(e,false));
+document.addEventListener('pointercancel',e=>endDrag(e,true));
+
 /* ---------- events ---------- */
 document.addEventListener('click',e=>{
   const m=$('#modal');if(e.target===m){closeModal();return;}
+  if(SUPPRESS){SUPPRESS=false;return;}
   const b=e.target.closest('[data-a]');if(!b)return;
   const a=b.dataset.a,ds=b.dataset;
   switch(a){
@@ -397,7 +459,9 @@ document.addEventListener('click',e=>{
     case 'osay':{e.stopPropagation();const q=QZ.qs[QZ.i],o=q.options[+ds.i];const t=typeof o==='object'?o.t:String(o);speak(t,q.optLang);break;}
     case 'pick':{if(!QZ||QZ.picked!==null)return;const q=QZ.qs[QZ.i],i=+ds.i;QZ.picked=i;answer(i===q.answer);saveQuiz();
       render();break;}
-    case 'ord-add':{if(QZ.checked!==null)return;const i=+ds.i;if(!QZ.sel.includes(i)){QZ.sel.push(i);const q=QZ.qs[QZ.i];if(q.lang==='en')speak(q.items[i],'en');}render();break;}
+    case 'ord-add':ordAdd(+ds.i);break;
+    case 'm-l':{if(!QZ||!QZ.mm)return;QZ.mm.sel=+ds.i;chime(true);render();break;}
+    case 'm-r':{if(!QZ||!QZ.mm)return;const q=QZ.qs[QZ.i];if(QZ.mm.sel===null){speak(q.pairs[+ds.i].t,'en');toast('Con chọn một hình trước, rồi chạm vào từ nhé');return;}matchTry(QZ.mm.sel,+ds.i);break;}
     case 'ord-rm':{if(QZ.checked!==null)return;QZ.sel.splice(+ds.i,1);render();break;}
     case 'ord-check':{const q=QZ.qs[QZ.i];const ok=QZ.sel.map(i=>q.items[i]).join('|')===q.items.join('|');QZ.checked=ok;answer(ok);saveQuiz();render();break;}
     case 'next':nextQ();break;
@@ -434,4 +498,4 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').hidden
   if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('osay')){e.preventDefault();e.target.click();}});
 
 /* ---------- boot ---------- */
-(function boot(){const loc=loadLocal();if(loc)S=migrate(loc);render();resumeQuiz();Store.init().then(()=>{if(NAV.v==='home')resumeQuiz();});})();
+
