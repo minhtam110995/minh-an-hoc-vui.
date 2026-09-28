@@ -171,6 +171,14 @@ h1,h2,h3{font-family:var(--display);line-height:1.15;margin:0;text-wrap:balance}
 .order-slot .tile{box-shadow:none}
 .order-slot.ok{border-color:var(--good);background:var(--good-s)}
 .order-slot.no{border-color:var(--bad);background:var(--bad-s)}
+.teacher{display:flex;gap:10px;align-items:center}
+.teacher .ava,.fb .ava{flex:none;display:grid;place-items:center;border-radius:50%;background:var(--star-s);border:2px solid var(--star);line-height:1}
+.teacher .ava{width:58px;height:58px;font-size:36px}
+.teacher .bubble{position:relative;flex:1;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:10px 14px;font-weight:800;font-size:18px;line-height:1.35}
+.teacher .bubble::before{content:'';position:absolute;left:-9px;top:50%;width:14px;height:14px;background:var(--card);border-left:2px solid var(--line);border-bottom:2px solid var(--line);transform:translateY(-50%) rotate(45deg)}
+.fb .tline{display:flex;gap:10px;align-items:center;flex:1;min-width:220px}
+.fb .ava{width:44px;height:44px;font-size:26px}
+.result .teacher{width:100%;text-align:left}
 .answer-line{font-weight:800;color:var(--good)}
 
 /* visuals */

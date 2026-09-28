@@ -47,7 +47,7 @@ function enGens(u){
     ()=>{const w=pick(ws);return Q('Đây là gì? (What is it?)',enOptWord(w),[...ws.filter(x=>x!==w),...enOthers(w)].map(enOptWord),{visual:`<div class="pic-lg">${picHTML(w.pic)}</div>`,cols:2,optLang:'en'});},
     ()=>{const Lc=u.L.toLowerCase();const starts=ws.filter(x=>x.en[0].toLowerCase()===Lc);const mode=starts.length?'bắt đầu bằng':'có';const good=starts.length?starts:ws.filter(x=>x.en.toLowerCase().includes(Lc));if(!good.length)return null;const w=pick(good);
       const bad=EN_ALL.filter(x=>starts.length?x.en[0].toLowerCase()!==Lc:!x.en.toLowerCase().includes(Lc));
-      return Q(`Từ nào ${mode} chữ ${u.L}?`,{pic:w.pic,t:w.en,k:w.en},shuffle(bad).map(x=>({pic:x.pic,t:x.en,k:x.en})),{cols:2,optLang:'en',say:`Từ nào ${mode} chữ ${u.L}`});},
+      return Q(`Từ nào ${mode} chữ ${u.L}?`,{pic:w.pic,t:w.en,k:w.en},shuffle(bad).map(x=>({pic:x.pic,t:x.en,k:x.en})),{cols:2,optLang:'en',say:`Từ nào ${mode} chữ "${u.L}"`});},
     ()=>{const w=pick(ws);return Q(`"${w.en}" nghĩa là gì?`,{pic:w.pic,t:w.vi,k:w.vi},enOthers(w).map(x=>({pic:x.pic,t:x.vi,k:x.vi})),{audio:{text:w.en,lang:'en'},cols:2});}
   ];
   if(u.pat){const [tpl,list]=u.pat;const S=x=>tpl.replace('{w}',x);
