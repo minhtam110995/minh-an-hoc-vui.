@@ -5,7 +5,7 @@ Mỗi bài có 3 bước: Học → Luyện tập → Thử thách ngoài đời
 
 ## Luật sao
 - Bài luyện tập đạt từ 80% trở lên: **+3 sao**; dưới 80%: **−1 sao** (không trừ dưới 0).
-- Mỗi bài chỉ nhận sao 1 lần mỗi ngày. Bài làm dở được lưu, mở lại làm tiếp.
+- Mỗi bài chỉ được cộng 3 sao 1 lần mỗi ngày; làm lại chưa đạt thì lần nào cũng bị trừ 1 sao. Bài làm dở được lưu, mở lại làm tiếp.
 - Thử thách ngoài đời: bố mẹ xác nhận bằng mã PIN (mặc định `1234`, đổi trong Khu bố mẹ).
 - Phần thưởng 5 mốc: 20 · 40 · 70 · 120 · 250 sao, đổi lại được nhiều lần.
 

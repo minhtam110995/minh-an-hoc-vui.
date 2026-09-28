@@ -195,7 +195,7 @@ function practiceHTML(l){
     return `<div class="rule card"><div class="big" aria-hidden="true">✏️</div><h2>Sẵn sàng chưa, Minh An?</h2>
     <p class="muted" style="font-weight:700;margin:0">Bài có khoảng 10 câu. Chạm vào loa để nghe câu hỏi.</p>
     <div class="rules"><div class="g">Đúng từ 80% trở lên<br><span style="font-size:24px">+${WIN} sao</span></div><div class="b">Dưới 80%<br><span style="font-size:24px">−${LOSE} sao</span></div></div>
-    ${today?'<p class="chip ok" style="justify-self:center;font-size:15px">Hôm nay con đã nhận sao bài này. Luyện thêm không tính sao.</p>':''}
+    ${today?'<p class="chip ok" style="justify-self:center;font-size:15px">Hôm nay bài này đã được cộng sao. Làm lại đạt thì không cộng thêm, chưa đạt vẫn bị trừ 1 sao.</p>':''}
     ${r?`<p class="muted" style="margin:0;font-weight:700">Điểm cao nhất: ${r.best}% · Đã làm ${r.tries} lần</p>`:''}
     <div class="cta" style="margin-top:4px"><button class="btn gold" data-a="start">Bắt đầu</button></div></div>`;
   }
@@ -302,7 +302,7 @@ function finishQuiz(forced){
   const r=S.lessons[l.id]||(S.lessons[l.id]={best:0,tries:0,passDay:''});
   r.tries++;r.best=Math.max(r.best,pct);r.last=pct;
   const t=todayStr();let delta=0,counted=true;
-  if(r.passDay===t){counted=false;}
+  if(pass&&r.passDay===t){counted=false;}
   else if(pass){delta=addStars(WIN,`Đạt ${pct}% · ${SUBJ_BY[l.subj].name}: ${l.title}`);r.passDay=t;}
   else{delta=addStars(-LOSE,`${forced?'Bỏ dở':'Chưa đạt'} ${pct}% · ${SUBJ_BY[l.subj].name}: ${l.title}`);}
   touchStreak();S.lastLesson=l.id;S.quiz=null;Store.commit();
@@ -310,18 +310,18 @@ function finishQuiz(forced){
   if(l.subj==='en'){QZ.result.line=pass&&counted?`Hooray! Well done, ${KID}! You got ${correct} out of ${n}. Three stars for you!`:pass?`Great job, ${KID}! You got ${correct} out of ${n}.`:`Good try, ${KID}! You got ${correct} out of ${n}. Let's practice and try again!`;
     QZ.result.sub=pass&&counted?`Hoan hô! Con đúng ${correct}/${n} câu, được cộng 3 sao!`:pass?`Giỏi lắm! Con đúng ${correct}/${n} câu.`:`Con đúng ${correct}/${n} câu. Mình luyện thêm rồi thử lại nhé!`;
     QZ.result.lang='en';}
-  else QZ.result.line=pass&&counted?`Hoan hô ${KID}! Con làm đúng ${correct} trên ${n} câu và được cộng ba ngôi sao rồi. Cô tự hào về con lắm!`:pass?`Giỏi lắm ${KID}! Con làm đúng ${correct} trên ${n} câu. Luyện thêm là con càng giỏi hơn đó!`:`${KID} ơi, lần này con đúng ${correct} trên ${n} câu, chưa đủ tám mươi phần trăm. Không sao đâu con, mình xem lại bài học rồi thử lại với cô nhé!`;
+  else QZ.result.line=pass&&counted?`Hoan hô ${KID}! Con làm đúng ${correct} trên ${n} câu và được cộng ba ngôi sao rồi. Cô tự hào về con lắm!`:pass?`Giỏi lắm ${KID}! Con làm đúng ${correct} trên ${n} câu. Luyện thêm là con càng giỏi hơn đó!`:`${KID} ơi, lần này con đúng ${correct} trên ${n} câu, chưa đủ tám mươi phần trăm${delta<0?' nên bị trừ một sao':''}. Không sao đâu con, mình xem lại bài học rồi thử lại với cô nhé!`;
   if(!forced){render();if(pass&&counted)burst();speak(QZ.result.line,QZ.result.lang||'vi');window.scrollTo({top:0});}
 }
 function resultHTML(l){
   const R=QZ.result;
-  let d='';if(!R.counted)d=`<div class="delta zero">Hôm nay bài này đã nhận sao rồi</div>`;else if(R.delta>0)d=`<div class="delta plus">+${R.delta} sao</div>`;else if(R.delta<0)d=`<div class="delta minus">${R.delta} sao</div>`;else d=`<div class="delta zero">Chưa có sao để trừ</div>`;
+  let d='';if(!R.counted)d=`<div class="delta zero">Hôm nay bài này đã được cộng sao rồi</div>`;else if(R.delta>0)d=`<div class="delta plus">+${R.delta} sao</div>`;else if(R.delta<0)d=`<div class="delta minus">${R.delta} sao</div>`;else d=`<div class="delta zero">Chưa có sao để trừ</div>`;
   const msg=R.pass?'Con làm rất tốt! Giờ thử làm ở ngoài đời nhé.':'Chưa đủ 80%. Con xem lại bài học rồi làm lại nhé!';
   return `<div class="result">${R.line?teacher(R.line,R.line,R.lang||'vi',R.sub):''}<div class="ring" style="--p:${R.pct};--rc:${R.pass?'var(--good)':'var(--bad)'}"><div><b>${R.pct}%</b><span>${R.correct}/${R.n} câu đúng</span></div></div>${d}<h2>${msg}</h2>
   <div class="row" style="justify-content:center">${R.pass?`<button class="btn gold" data-a="tab" data-t="real">Thử thách ngoài đời ›</button>`:`<button class="btn ghost" data-a="tab" data-t="learn">Xem lại bài học</button>`}<button class="btn ${R.pass?'ghost':''}" data-a="start">Làm lại</button></div></div>`;
 }
 function confirmQuit(then){
-  modal(`<h2>Con đang làm dở bài</h2><p>Nếu thoát bây giờ, bài này sẽ tính là chưa đạt${lessonRec(QZ.id)?.passDay===todayStr()?'':` (−${LOSE} sao)`}.</p><div class="row" style="justify-content:center"><button class="btn good" data-a="modal-close">Làm tiếp</button><button class="btn ghost" data-a="quit-yes">Thoát</button></div>`);
+  modal(`<h2>Con đang làm dở bài</h2><p>Nếu thoát bây giờ, bài này sẽ tính là chưa đạt (−${LOSE} sao).</p><div class="row" style="justify-content:center"><button class="btn good" data-a="modal-close">Làm tiếp</button><button class="btn ghost" data-a="quit-yes">Thoát</button></div>`);
   QUIT_THEN=then;
 }
 let QUIT_THEN=null;
@@ -388,7 +388,7 @@ function vParent(){
 </div>
   <div class="sec-title"><h2>Luật chơi</h2></div><div class="card"><ul style="margin:0;padding-left:20px;display:grid;gap:6px;font-weight:700">
    <li>Mỗi bài luyện tập: đúng từ 80% trở lên được +${WIN} sao; dưới 80% bị −${LOSE} sao (không trừ xuống dưới 0).</li>
-   <li>Mỗi bài chỉ nhận sao 1 lần mỗi ngày. Làm lại sau khi đã đạt trong ngày thì không cộng, không trừ.</li>
+   <li>Mỗi bài chỉ được cộng 3 sao 1 lần mỗi ngày. Làm lại chưa đạt thì lần nào cũng bị trừ 1 sao.</li>
    <li>Thoát giữa chừng tính là chưa đạt.</li>
    <li>Thử thách ngoài đời: bố mẹ xác nhận, làm tốt +${WIN} sao, chưa làm được −${LOSE} sao. Mỗi thử thách chỉ được cộng 1 lần.</li>
    <li>Đổi quà cần mã PIN của bố mẹ.</li></ul></div>
